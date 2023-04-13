@@ -3,7 +3,7 @@
     "path": "~/Library/CloudStorage/OneDrive-AllenInstitute/ShinierBrains/app.R",
     "project_path": "app.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "1251862736",
     "contents": "",
     "dirty": false,
     "created": 1681265780172.0,
@@ -11,14 +11,16 @@
     "relative_order": 1,
     "properties": {
         "source_window_id": "",
-        "Source": "Source"
+        "Source": "Source",
+        "cursorPosition": "8,0",
+        "scrollLine": "0"
     },
     "folds": "",
-    "lastKnownWriteTime": 1681265778,
+    "lastKnownWriteTime": 1681277322,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1681265778,
+    "last_content_update": 1681277322785,
     "read_only": false,
     "read_only_alternatives": []
 }
