@@ -1,3 +1,3 @@
 # ShinierBrains
  
-Add link here like this [GitHub Pages](https://pages.github.com/).
+link here to [Shinyapp](https://3zqqmj-alexandra0allison-de0sousa.shinyapps.io/ShinierBrains/).
