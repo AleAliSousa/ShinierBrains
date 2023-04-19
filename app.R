@@ -5,7 +5,7 @@ library(dplyr)
 
 # Define the user interface
 ui <- fluidPage(
-  titlePanel("PGLS Mammal Brain Size Prediction"),
+  titlePanel("PGLS Mammal Brain Size Prediction (Beta)"),
   sidebarLayout(
     sidebarPanel(
       selectInput("select_order", "Select Order:",
@@ -62,8 +62,7 @@ server <- function(input, output) {
   
   # Generate the plot
   output$plot <- renderPlot({
-    req(input$select_order, input$body_size_text, input$brain_size_text)
-    
+    req(input$select_order, input$body_size_text)
     
     predicted_brain_body_size <- exp(predict(model.pgls(), newdata = data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
     
@@ -83,9 +82,9 @@ server <- function(input, output) {
   
   # Display the citation
   output$citation <- renderText({
-    "Burger, J. R., George, M. A., Leadbetter, C., & Shaikh, F. (2019). The allometry of brain size in mammals. Journal of Mammalogy, 100(2), 276-283. doi:10.1093/jmammal/gyz043"
-    })
-  }
+      "Data: Burger et al., 2019; Tree: Kumar et al., 2022; See https://github.com/AleAliSousa/ShinierBrains"
+  })
+}
 
   # Run the app
   shinyApp(ui = ui, server = server)
