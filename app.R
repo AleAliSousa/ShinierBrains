@@ -15,7 +15,7 @@ ui <- fluidPage(
                 "enter body size (g)"),
       textInput("brain_size_text",
                 "if known, enter brain size (g) (appears as red point)"),
-      #actionButton("my_prediction", "Predict Brain Size")
+      actionButton("my_prediction", "Predict Brain Size")
     ),
     mainPanel(
       plotOutput("plot"),
@@ -62,7 +62,7 @@ server <- function(input, output) {
   
   # Generate the plot
   output$plot <- renderPlot({
-    req(input$select_order, input$body_size_text)
+    req(input$select_order, input$body_size_text, input$my_prediction)
     
     predicted_brain_body_size <- exp(predict(model.pgls(), newdata = data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
     
