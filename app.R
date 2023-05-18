@@ -14,13 +14,13 @@ ui <- fluidPage(
       textInput("body_size_text",
                 "enter body size (g)"),
       textInput("brain_size_text",
-                "if known, enter brain size (g) (appears as red point)"),
+                "if known, enter brain size (g) to calculate residual (appears as red point)"),
       actionButton("my_prediction", "Predict Brain Size")
     ),
     mainPanel(
       plotOutput("plot"),
       verbatimTextOutput("result"),
-      textOutput("citation")
+      uiOutput("citation")
     )
   )
 )
@@ -34,6 +34,26 @@ server <- function(input, output) {
   
   # Load the tree
   MammalTree <- read.tree("species.nwk")
+  
+  # ALL Mammals Rasidual
+  # Create the comparative data object for all Mammals
+  AllMammalData <- comparative.data(phy = MammalTree, data = MammalData, names.col = Binomial, vcv = TRUE, na.omit = FALSE, warn.dropped = FALSE)
+  # Define the PGLS model for all Mammals
+  model.pgls.mammals<- pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = AllMammalData)
+  summary.mammals=summary(model.pgls.mammals)
+  # Predict the all Mammals brain size from the PGLS model based on the user's input
+  predicted_mammal_brain <- reactive ({
+    exp(predict(model.pgls.mammals, data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
+  })
+  # Determine the all Mammals brain size residual from the PGLS model based on the user's input
+  residual_mammal_brain <- reactive({
+    logobserved <- log(as.numeric(input$brain_size_text))  # Observed brain size
+    logpredicted <- predict(model.pgls.mammals, data.frame(Mean_body_mass_g = as.numeric(input$body_size_text)))  # Predicted brain size
+    residual_mammal_brain <- (logobserved - logpredicted) / logpredicted # Residual calculation
+  })
+
+  # PRINT the ALL mammal PGLS summary in console
+  print(summary.mammals)
   
   # Create a reactive object to filter the data based on the user's selected order 
   OrderData <- reactive({
@@ -57,8 +77,12 @@ server <- function(input, output) {
   
   # Display the prediction result
   output$result <- renderText({
-    paste("Based on a body size of", input$body_size_text, "g, the predicted brain size for", input$select_order, "is", round(predicted_brain(), 2), "g (blue point).")
+    paste(
+      "Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).",
+      "\nWhen based on a regression for all mammals it has the predicted brain size of", round(predicted_mammal_brain(), 2), "g, and a residual value of", round(residual_mammal_brain(), 2), "."
+    )
   })
+  
   
   # Generate the plot
   output$plot <- renderPlot({
@@ -82,9 +106,13 @@ server <- function(input, output) {
   
   # Display the citation
   output$citation <- renderText({
-      "Data: Burger et al., 2019; Tree: Kumar et al., 2022; See https://github.com/AleAliSousa/ShinierBrains"
+    citation_text <- "Data: Burger et al., 2019; Tree: Kumar et al., 2022; See"
+    citation_link <- "https://github.com/AleAliSousa/ShinierBrains"
+    paste(citation_text, "<a href='", citation_link, "'>", citation_link, "</a>")
   })
+  
 }
+
 
   # Run the app
   shinyApp(ui = ui, server = server)
