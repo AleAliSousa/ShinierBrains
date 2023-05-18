@@ -6,13 +6,14 @@ library(dplyr)
 # Define the user interface
 ui <- fluidPage(
   titlePanel("PGLS Mammal Brain Size Prediction (Beta)"),
+  tags$small("Patience! Takes about 7 min. for maximum likelihood"),  # Add the subheading using tags$small
   sidebarLayout(
     sidebarPanel(
       selectInput("select_order", "Select Order:",
-                  choices = c("Afrosoricida", "Artiodactyla", "Carnivora",  "Cetacea",  "Chiroptera","Cingulata","Dasyuromorphia","Diprotodontia", "Erinaceomorpha","Hyracoidea", "Lagomorpha", "Macroscelidea", "Monotremata","Notoryctemorphia", 
+                  choices = c("all mammals", "Afrosoricida", "Artiodactyla", "Carnivora",  "Cetacea",  "Chiroptera","Cingulata","Dasyuromorphia","Diprotodontia", "Erinaceomorpha","Hyracoidea", "Lagomorpha", "Macroscelidea", "Monotremata","Notoryctemorphia",
                               "Paucituberculata", "Peramelemorphia","Perissodactyla", "Pholidota", "Pilosa",  "Primates",  "Proboscidea",  "Rodentia", "Scandentia",  "Sirenia",  "Soricomorpha","Tubulidentata")),
       textInput("body_size_text",
-                "enter body size (g)"),
+                "Enter body size (g)"),
       textInput("brain_size_text",
                 "if known, enter brain size (g) to calculate residual (appears as red point)"),
       actionButton("my_prediction", "Predict Brain Size")
@@ -26,94 +27,83 @@ ui <- fluidPage(
 )
 # Define the server logic
 server <- function(input, output) {
-  
+
   # Load the data
   MammalData <- read.csv("gyz043_suppl_Supplement_Data.csv")
   MammalData$log_brain_mass_g <- log(MammalData$Mean_brain_mass_g)
   MammalData$log_body_mass_g <- log(MammalData$Mean_body_mass_g)
-  
+
   # Load the tree
   MammalTree <- read.tree("species.nwk")
-  
-  # ALL Mammals Rasidual
-  # Create the comparative data object for all Mammals
-  AllMammalData <- comparative.data(phy = MammalTree, data = MammalData, names.col = Binomial, vcv = TRUE, na.omit = FALSE, warn.dropped = FALSE)
-  # Define the PGLS model for all Mammals
-  model.pgls.mammals<- pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = AllMammalData)
-  summary.mammals=summary(model.pgls.mammals)
-  # Predict the all Mammals brain size from the PGLS model based on the user's input
-  predicted_mammal_brain <- reactive ({
-    exp(predict(model.pgls.mammals, data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
-  })
-  # Determine the all Mammals brain size residual from the PGLS model based on the user's input
-  residual_mammal_brain <- reactive({
-    logobserved <- log(as.numeric(input$brain_size_text))  # Observed brain size
-    logpredicted <- predict(model.pgls.mammals, data.frame(Mean_body_mass_g = as.numeric(input$body_size_text)))  # Predicted brain size
-    residual_mammal_brain <- (logobserved - logpredicted) / logpredicted # Residual calculation
+
+  # Create a reactive object to filter the data based on the user's selected order
+  OrderData <- reactive({
+    if (input$select_order == "all mammals") {
+      MammalData
+    } else {
+      filter(MammalData, order %in% input$select_order)
+    }
   })
 
-  # PRINT the ALL mammal PGLS summary in console
-  print(summary.mammals)
-  
-  # Create a reactive object to filter the data based on the user's selected order 
-  OrderData <- reactive({
-    filter(MammalData, order %in% input$select_order)
-  })
-  
   # Create the comparative data object
   MammalOrder <- reactive({
     comparative.data(phy = MammalTree, data = OrderData(), names.col = Binomial, vcv = TRUE, na.omit = FALSE, warn.dropped = FALSE)
   })
-  
+
   # Define the PGLS model
-  model.pgls<-reactive({
-    pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder())
+  model.pgls <- reactive({
+    pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder(), lambda="ML")
   })
-  
+
   # Predict the brain size from the PGLS model based on the user's input
   predicted_brain <- reactive({
     exp(predict(model.pgls(), data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
   })
-  
+
+  # Determine the brain size residual from the PGLS model based on the user's input
+  residual_brain <- reactive({
+    logobserved <- log(as.numeric(input$brain_size_text))  # LOG Observed brain size
+    logpredicted <- predict(model.pgls(), data.frame(Mean_body_mass_g = as.numeric(input$body_size_text)))  # LOG Predicted brain size
+    residual_brain <- (logobserved - logpredicted) / logpredicted # Residual calculation
+  })
+
   # Display the prediction result
   output$result <- renderText({
     paste(
-      "Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).",
-      "\nWhen based on a regression for all mammals it has the predicted brain size of", round(predicted_mammal_brain(), 2), "g, and a residual value of", round(residual_mammal_brain(), 2), "."
+        "Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).",
+        "\nIt has a brain residual value of",round(residual_brain(),2),"based on an",input$select_order,"regression."
     )
   })
-  
-  
+
   # Generate the plot
   output$plot <- renderPlot({
     req(input$select_order, input$body_size_text, input$my_prediction)
-    
     predicted_brain_body_size <- exp(predict(model.pgls(), newdata = data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
-    
+
     # Get the slope and intercept of the PGLS regression line
     slope <- coef(model.pgls())[2]
     intercept <- coef(model.pgls())[1]
-    
+
     ggplot(OrderData(), aes(x = log(Mean_body_mass_g), y = log(Mean_brain_mass_g))) +
       geom_point() +
       geom_abline(intercept = intercept, slope = slope, color = "blue") +
-      labs(x = "Body Size (log g)", y = "Brain Size (log g)") +
+      labs(x = "log Body Size (g)", y = "log Brain Size (g)") +
       geom_point(aes(x = log(Mean_body_mass_g), y = log(Mean_brain_mass_g)), color = "black", size = 3) +
       geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(as.numeric(input$brain_size_text))), color = "red", size = 3) +
       geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(predicted_brain_body_size)), color = "blue", size = 3) +
       theme(plot.margin = margin(10, 10, 30, 10))
   })
-  
+
   # Display the citation
   output$citation <- renderText({
     citation_text <- "Data: Burger et al., 2019; Tree: Kumar et al., 2022; See"
     citation_link <- "https://github.com/AleAliSousa/ShinierBrains"
     paste(citation_text, "<a href='", citation_link, "'>", citation_link, "</a>")
   })
-  
 }
 
+# Run the app
+shinyApp(ui = ui, server = server)
 
-  # Run the app
-  shinyApp(ui = ui, server = server)
+
 
