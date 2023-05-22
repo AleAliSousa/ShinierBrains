@@ -6,7 +6,7 @@ library(dplyr)
 # Define the user interface
 ui <- fluidPage(
   titlePanel("PGLS Mammal Brain Size Prediction (Beta)"),
-  tags$small("Patience! This is a large dataset."),  # Add the subheading using tags$small
+  tags$small("Patience! Takes about 7 min. for maximum likelihood"),  # Add the subheading using tags$small
   sidebarLayout(
     sidebarPanel(
       selectInput("select_order", "Select Order:",
@@ -16,7 +16,6 @@ ui <- fluidPage(
                 "Enter body size (g)"),
       textInput("brain_size_text",
                 "if known, enter brain size (g) to calculate residual (appears as red point)"),
-      checkboxInput("lambda_checkbox", "estimate phylogenetic signal using maximum likelihood (takes about 8 min.)", value = FALSE),
       actionButton("my_prediction", "Predict Brain Size")
     ),
     mainPanel(
@@ -48,16 +47,12 @@ server <- function(input, output) {
 
   # Create the comparative data object
   MammalOrder <- reactive({
-    comparative.data(phy = MammalTree, data = OrderData(), names.col = Binomial, vcv = TRUE, na.omit = TRUE, warn.dropped = FALSE)
+    comparative.data(phy = MammalTree, data = OrderData(), names.col = Binomial, vcv = TRUE, na.omit = FALSE, warn.dropped = FALSE)
   })
 
   # Define the PGLS model
   model.pgls <- reactive({
-    if (input$lambda_checkbox) {
-      pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder(), lambda = "ML")
-    } else {
-      pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder())
-    }
+    pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder(), lambda="ML")
   })
 
   # Predict the brain size from the PGLS model based on the user's input
@@ -68,47 +63,22 @@ server <- function(input, output) {
   # Determine the brain size residual from the PGLS model based on the user's input
   residual_brain <- reactive({
     logobserved <- log(as.numeric(input$brain_size_text))  # LOG Observed brain size
-    logpredicted <- log(predicted_brain())  # LOG Predicted brain size
+    logpredicted <- predict(model.pgls(), data.frame(Mean_body_mass_g = as.numeric(input$body_size_text)))  # LOG Predicted brain size
     residual_brain <- (logobserved - logpredicted) / logpredicted # Residual calculation
   })
 
-  # # Display the prediction result
-  # output$result <- renderText({
-  #   if (input$lambda_checkbox) {
-  #     lambda_estimate <- model.pgls()$param["lambda"][1]
-  #     lambda_text <- paste("Phylogenetic signal estimated by maximum likelihood, lambda =", lambda_estimate)
-  #   } else {
-  #     lambda_text <- paste("Brownian motion assumed, fixed to lambda = 1")
-  #   }
-  #   paste(
-  #       "Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).",
-  #       "\nIt has a brain residual value of",round(residual_brain(),2),"based on an",input$select_order,"regression.",
-  #       "\n",lambda_text
-  #   )
-  # })
   # Display the prediction result
   output$result <- renderText({
-    if (input$lambda_checkbox) {
-      lambda_estimate <- model.pgls()$param["lambda"][1]
-      lambda_text <- paste("Phylogenetic signal estimated by maximum likelihood, lambda =", lambda_estimate)
-    } else {
-      lambda_text <- paste("Brownian motion assumed, fixed to lambda = 1")
-    }
-    
-    prediction_text <- paste("Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).")
-    
-    if (!is.null(input$brain_size_text) && input$brain_size_text != "") {
-      residual_text <- paste("It has a brain residual value of", round(residual_brain(), 2), "based on an", input$select_order, "regression.")
-    } else {
-      residual_text <- ""
-    }
-    
-    paste(prediction_text, "\n", residual_text, "\n", lambda_text)
+    paste(
+        "Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).",
+        "\nIt has a brain residual value of",round(residual_brain(),2),"based on an",input$select_order,"regression."
+    )
   })
-  
+
   # Generate the plot
   output$plot <- renderPlot({
     req(input$select_order, input$body_size_text, input$my_prediction)
+    predicted_brain_body_size <- exp(predict(model.pgls(), newdata = data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
 
     # Get the slope and intercept of the PGLS regression line
     slope <- coef(model.pgls())[2]
@@ -120,7 +90,7 @@ server <- function(input, output) {
       labs(x = "log Body Size (g)", y = "log Brain Size (g)") +
       geom_point(aes(x = log(Mean_body_mass_g), y = log(Mean_brain_mass_g)), color = "black", size = 3) +
       geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(as.numeric(input$brain_size_text))), color = "red", size = 3) +
-      geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(predicted_brain())), color = "blue", size = 3) +
+      geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(predicted_brain_body_size)), color = "blue", size = 3) +
       theme(plot.margin = margin(10, 10, 30, 10))
   })
 
