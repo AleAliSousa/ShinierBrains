@@ -31,8 +31,8 @@ server <- function(input, output) {
 
   # Load the data
   MammalData <- read.csv("gyz043_suppl_Supplement_Data.csv")
-  MammalData$log_brain_mass_g <- log(MammalData$Mean_brain_mass_g)
-  MammalData$log_body_mass_g <- log(MammalData$Mean_body_mass_g)
+  MammalData$log10_brain_mass_g <- log10(MammalData$Mean_brain_mass_g)
+  MammalData$log10_body_mass_g <- log10(MammalData$Mean_body_mass_g)
 
   # Load the tree
   MammalTree <- read.tree("species.nwk")
@@ -54,23 +54,34 @@ server <- function(input, output) {
   # Define the PGLS model
   model.pgls <- reactive({
     if (input$lambda_checkbox) {
-      pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder(), lambda = "ML")
+      pgls(log10(Mean_brain_mass_g) ~ log10(Mean_body_mass_g), data = MammalOrder(), lambda = "ML")
     } else {
-      pgls(log(Mean_brain_mass_g) ~ log(Mean_body_mass_g), data = MammalOrder())
+      pgls(log10(Mean_brain_mass_g) ~ log10(Mean_body_mass_g), data = MammalOrder())
     }
   })
 
   # Predict the brain size from the PGLS model based on the user's input
   predicted_brain <- reactive({
-    exp(predict(model.pgls(), data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
+    10^(predict(model.pgls(), data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
   })
 
   # Determine the brain size Residual Index from the PGLS model based on the user's input
   residual_brain <- reactive({
-    logobserved <- log(as.numeric(input$brain_size_text))  # LOG Observed brain size
-    logpredicted <- log(predicted_brain())  # LOG Predicted brain size
-    residual_brain <- (logobserved - logpredicted) / logpredicted # Residual Index calculation
+    log10observed <- log10(as.numeric(input$brain_size_text))  # log10 Observed brain size
+    log10predicted <- log10(predicted_brain())  # log10 Predicted brain size
+    residual_brain <- (log10observed - log10predicted) / log10predicted # Residual Index calculation
   })
+  
+  #######################
+  
+  # Determine the brain size Brain residual from the PGLS model based on the user's input
+  brain_residual <- reactive({
+    log10observed <- log10(as.numeric(input$brain_size_text))  # log10 Observed brain size
+    log10predicted <- log10(predicted_brain())  # log10 Predicted brain size
+    brain_residual <- log10observed - log10predicted # Brain residual calculation
+  })
+  
+  ########################
 
   # Display the prediction result
   output$result <- renderText({
@@ -84,13 +95,21 @@ server <- function(input, output) {
     prediction_text <- paste("Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g \U0001F535.")
     
     if (!is.null(input$brain_size_text) && input$brain_size_text != "") {
-      residual_text <- paste("It has a brain Residual Index value of", round(residual_brain(), 2), "based on an", input$select_order, "regression.")
+      brain_residual_text <- paste( "Based on an", input$select_order, "regression, it has a residual value of", round(brain_residual(), 2), ".")
+      ########################
+      residual_text <- paste("It has a Brain Residual Index (observed-predicted/observed) value of", round(residual_brain(), 2), ".")
+      ########################
     } else {
+      brain_residual_text <- ""
+      ########################
       residual_text <- ""
-    }
+      ########################
+      }
     
-    paste(prediction_text, "\n", residual_text, "\n", lambda_text)
+    paste(prediction_text, "\n", brain_residual_text, "\n", residual_text, "\n", lambda_text)
   })
+  
+
   
   # Generate the plot
   output$plot <- renderPlot({
@@ -100,13 +119,13 @@ server <- function(input, output) {
     slope <- coef(model.pgls())[2]
     intercept <- coef(model.pgls())[1]
 
-    ggplot(OrderData(), aes(x = log(Mean_body_mass_g), y = log(Mean_brain_mass_g))) +
+    ggplot(OrderData(), aes(x = log10(Mean_body_mass_g), y = log10(Mean_brain_mass_g))) +
       geom_point() +
       geom_abline(intercept = intercept, slope = slope, color = "blue") +
-      labs(x = "log Body Size (g)", y = "log Brain Size (g)") +
-      geom_point(aes(x = log(Mean_body_mass_g), y = log(Mean_brain_mass_g)), color = "black", size = 3) +
-      geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(as.numeric(input$brain_size_text))), color = "red", size = 3) +
-      geom_point(aes(x = log(as.numeric(input$body_size_text)), y = log(predicted_brain())), color = "blue", size = 3) +
+      labs(x = "log10 Body Size (g)", y = "log10 Brain Size (g)") +
+      geom_point(aes(x = log10(Mean_body_mass_g), y = log10(Mean_brain_mass_g)), color = "black", size = 3) +
+      geom_point(aes(x = log10(as.numeric(input$body_size_text)), y = log10(as.numeric(input$brain_size_text))), color = "red", size = 3) +
+      geom_point(aes(x = log10(as.numeric(input$body_size_text)), y = log10(predicted_brain())), color = "blue", size = 3) +
       theme(plot.margin = margin(10, 10, 30, 10))
   })
 
