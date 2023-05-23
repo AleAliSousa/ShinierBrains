@@ -9,15 +9,15 @@ ui <- fluidPage(
   tags$small("Patience! This is a large dataset."),  # Add the subheading using tags$small
   sidebarLayout(
     sidebarPanel(
-      selectInput("select_order", "Select Order:",
+      selectInput("select_order", "\U0001F984 select Order:",
                   choices = c("all mammals", "Afrosoricida", "Artiodactyla", "Carnivora",  "Cetacea",  "Chiroptera","Cingulata","Dasyuromorphia","Diprotodontia", "Erinaceomorpha","Hyracoidea", "Lagomorpha", "Macroscelidea", "Monotremata","Notoryctemorphia",
                               "Paucituberculata", "Peramelemorphia","Perissodactyla", "Pholidota", "Pilosa",  "Primates",  "Proboscidea",  "Rodentia", "Scandentia",  "Sirenia",  "Soricomorpha","Tubulidentata")),
       textInput("body_size_text",
-                "Enter body size (g)"),
+                "enter Body Size (g)"),
       textInput("brain_size_text",
-                "if known, enter brain size (g) to calculate residual (appears as red point)"),
-      checkboxInput("lambda_checkbox", "estimate phylogenetic signal using maximum likelihood (takes about 8 min.)", value = FALSE),
-      actionButton("my_prediction", "Predict Brain Size")
+                "to calculate Residual Index, enter Brain Size (g) if known \U0001F534"),
+      checkboxInput("lambda_checkbox", "estimate phylogenetic signal (λ) using maximum likelihood (takes up to 8 min.)", value = FALSE),
+      actionButton("my_prediction", "\U0001F535 Predict Brain Size ")
     ),
     mainPanel(
       plotOutput("plot"),
@@ -48,7 +48,7 @@ server <- function(input, output) {
 
   # Create the comparative data object
   MammalOrder <- reactive({
-    comparative.data(phy = MammalTree, data = OrderData(), names.col = Binomial, vcv = TRUE, na.omit = TRUE, warn.dropped = FALSE)
+    comparative.data(phy = MammalTree, data = OrderData(), names.col = Binomial, vcv = TRUE, na.omit = FALSE, warn.dropped = TRUE)
   })
 
   # Define the PGLS model
@@ -65,27 +65,13 @@ server <- function(input, output) {
     exp(predict(model.pgls(), data.frame(Mean_body_mass_g = as.numeric(input$body_size_text))))
   })
 
-  # Determine the brain size residual from the PGLS model based on the user's input
+  # Determine the brain size Residual Index from the PGLS model based on the user's input
   residual_brain <- reactive({
     logobserved <- log(as.numeric(input$brain_size_text))  # LOG Observed brain size
     logpredicted <- log(predicted_brain())  # LOG Predicted brain size
-    residual_brain <- (logobserved - logpredicted) / logpredicted # Residual calculation
+    residual_brain <- (logobserved - logpredicted) / logpredicted # Residual Index calculation
   })
 
-  # # Display the prediction result
-  # output$result <- renderText({
-  #   if (input$lambda_checkbox) {
-  #     lambda_estimate <- model.pgls()$param["lambda"][1]
-  #     lambda_text <- paste("Phylogenetic signal estimated by maximum likelihood, lambda =", lambda_estimate)
-  #   } else {
-  #     lambda_text <- paste("Brownian motion assumed, fixed to lambda = 1")
-  #   }
-  #   paste(
-  #       "Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).",
-  #       "\nIt has a brain residual value of",round(residual_brain(),2),"based on an",input$select_order,"regression.",
-  #       "\n",lambda_text
-  #   )
-  # })
   # Display the prediction result
   output$result <- renderText({
     if (input$lambda_checkbox) {
@@ -95,10 +81,10 @@ server <- function(input, output) {
       lambda_text <- paste("Brownian motion assumed, fixed to lambda = 1")
     }
     
-    prediction_text <- paste("Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g (blue point).")
+    prediction_text <- paste("Based on a body size of", input$body_size_text, "g, for", input$select_order, "the predicted brain size is", round(predicted_brain(), 2), "g \U0001F535.")
     
     if (!is.null(input$brain_size_text) && input$brain_size_text != "") {
-      residual_text <- paste("It has a brain residual value of", round(residual_brain(), 2), "based on an", input$select_order, "regression.")
+      residual_text <- paste("It has a brain Residual Index value of", round(residual_brain(), 2), "based on an", input$select_order, "regression.")
     } else {
       residual_text <- ""
     }
