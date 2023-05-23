@@ -5,10 +5,9 @@ account: 3zqqmj-alexandra0allison-de0sousa
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8836743
-bundleId: 7248264
+bundleId: 7251289
 url: https://3zqqmj-alexandra0allison-de0sousa.shinyapps.io/ShinierBrains/
-when: 1684766642.85001
-lastSyncTime: 1684766642.85003
+when: 1684817251.93806
+lastSyncTime: 1684817251.93806
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: old versions and tests/SFritz.tre|old versions and tests/testing.Rmd
